@@ -278,6 +278,8 @@ struct State<'a> {
     light_buffer: wgpu::Buffer,
     light_bind_group: wgpu::BindGroup,
     light_render_pipeline: wgpu::RenderPipeline,
+    #[allow(dead_code)]
+    debug_material: model::Material,
 }
 
 fn create_render_pipeline(
@@ -424,6 +426,22 @@ impl<'a> State<'a> {
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 3,
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
@@ -603,6 +621,36 @@ impl<'a> State<'a> {
             )
         };
 
+        let debug_material = {
+            let diffuse_bytes = include_bytes!("../res/cobble-diffuse.png");
+            let normal_bytes = include_bytes!("../res/cobble-normal.png");
+
+            let diffuse_texture = texture::Texture::from_bytes(
+                &device,
+                &queue,
+                diffuse_bytes,
+                "res/alt-diffuse.png",
+                false,
+            )
+            .unwrap();
+            let normal_texture = texture::Texture::from_bytes(
+                &device,
+                &queue,
+                normal_bytes,
+                "res/alt-normal.png",
+                true,
+            )
+            .unwrap();
+
+            model::Material::new(
+                &device,
+                "alt-material",
+                diffuse_texture,
+                normal_texture,
+                &texture_bind_group_layout,
+            )
+        };
+
         Self {
             surface,
             device,
@@ -624,6 +672,8 @@ impl<'a> State<'a> {
             light_buffer,
             light_bind_group,
             light_render_pipeline,
+            #[allow(dead_code)]
+            debug_material,
         }
     }
 
@@ -719,8 +769,9 @@ impl<'a> State<'a> {
             );
 
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.draw_model_instanced(
+            render_pass.draw_model_instanced_with_material(
                 &self.obj_model,
+                &self.debug_material,
                 0..self.instances.len() as u32,
                 &self.camera_bind_group,
                 &self.light_bind_group,
