@@ -22,6 +22,7 @@ log = "0.4"
 tobj = { version = "3.2", default-features = false, features = ["async"] }
 wgpu = "22.0"
 winit = { version = "0.29", features = ["rwh_05"] }
+instant = "0.1"
 
 [build-dependencies]
 anyhow = "1.0"
@@ -42,8 +43,9 @@ wgpu = { version = "22.0", features = ["webgl"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = [
-	"Document",
-	"Window",
-	"Element",
-	"Location",
+    "Document",
+    "Window",
+    "Element",
+    "Location",
 ] }
+instant = { version = "0.1", features = ["wasm-bindgen"] }
