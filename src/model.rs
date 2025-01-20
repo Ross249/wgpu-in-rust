@@ -12,7 +12,6 @@ pub struct ModelVertex {
     pub position: [f32; 3],
     pub tex_coords: [f32; 2],
     pub normal: [f32; 3],
-
     pub tangent: [f32; 3],
     pub bitangent: [f32; 3],
 }
@@ -39,6 +38,7 @@ impl Vertex for ModelVertex {
                     shader_location: 2,
                     format: wgpu::VertexFormat::Float32x3,
                 },
+                // Tangent and bitangent
                 wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
                     shader_location: 3,
@@ -55,8 +55,11 @@ impl Vertex for ModelVertex {
 }
 
 pub struct Material {
+    #[allow(unused)]
     pub name: String,
+    #[allow(unused)]
     pub diffuse_texture: texture::Texture,
+    #[allow(unused)]
     pub normal_texture: texture::Texture,
     pub bind_group: wgpu::BindGroup,
 }
@@ -66,7 +69,7 @@ impl Material {
         device: &wgpu::Device,
         name: &str,
         diffuse_texture: texture::Texture,
-        normal_texture: texture::Texture, // NEW!
+        normal_texture: texture::Texture,
         layout: &wgpu::BindGroupLayout,
     ) -> Self {
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -80,7 +83,6 @@ impl Material {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
                 },
-                // NEW!
                 wgpu::BindGroupEntry {
                     binding: 2,
                     resource: wgpu::BindingResource::TextureView(&normal_texture.view),
@@ -96,13 +98,14 @@ impl Material {
         Self {
             name: String::from(name),
             diffuse_texture,
-            normal_texture, // NEW!
+            normal_texture,
             bind_group,
         }
     }
 }
 
 pub struct Mesh {
+    #[allow(unused)]
     pub name: String,
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
@@ -116,12 +119,14 @@ pub struct Model {
 }
 
 pub trait DrawModel<'a> {
+    #[allow(unused)]
     fn draw_mesh(
         &mut self,
         mesh: &'a Mesh,
         material: &'a Material,
         camera_bind_group: &'a wgpu::BindGroup,
         light_bind_group: &'a wgpu::BindGroup,
+        environment_bind_group: &'a wgpu::BindGroup,
     );
     fn draw_mesh_instanced(
         &mut self,
@@ -130,13 +135,16 @@ pub trait DrawModel<'a> {
         instances: Range<u32>,
         camera_bind_group: &'a wgpu::BindGroup,
         light_bind_group: &'a wgpu::BindGroup,
+        environment_bind_group: &'a wgpu::BindGroup,
     );
 
+    #[allow(unused)]
     fn draw_model(
         &mut self,
         model: &'a Model,
         camera_bind_group: &'a wgpu::BindGroup,
         light_bind_group: &'a wgpu::BindGroup,
+        environment_bind_group: &'a wgpu::BindGroup,
     );
     fn draw_model_instanced(
         &mut self,
@@ -144,7 +152,9 @@ pub trait DrawModel<'a> {
         instances: Range<u32>,
         camera_bind_group: &'a wgpu::BindGroup,
         light_bind_group: &'a wgpu::BindGroup,
+        environment_bind_group: &'a wgpu::BindGroup,
     );
+    #[allow(unused)]
     fn draw_model_instanced_with_material(
         &mut self,
         model: &'a Model,
@@ -152,6 +162,7 @@ pub trait DrawModel<'a> {
         instances: Range<u32>,
         camera_bind_group: &'a wgpu::BindGroup,
         light_bind_group: &'a wgpu::BindGroup,
+        environment_bind_group: &'a wgpu::BindGroup,
     );
 }
 
@@ -165,8 +176,16 @@ where
         material: &'b Material,
         camera_bind_group: &'b wgpu::BindGroup,
         light_bind_group: &'b wgpu::BindGroup,
+        environment_bind_group: &'b wgpu::BindGroup,
     ) {
-        self.draw_mesh_instanced(mesh, material, 0..1, camera_bind_group, light_bind_group);
+        self.draw_mesh_instanced(
+            mesh,
+            material,
+            0..1,
+            camera_bind_group,
+            light_bind_group,
+            environment_bind_group,
+        );
     }
 
     fn draw_mesh_instanced(
@@ -176,12 +195,14 @@ where
         instances: Range<u32>,
         camera_bind_group: &'b wgpu::BindGroup,
         light_bind_group: &'b wgpu::BindGroup,
+        environment_bind_group: &'b wgpu::BindGroup,
     ) {
         self.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
         self.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
         self.set_bind_group(0, &material.bind_group, &[]);
         self.set_bind_group(1, camera_bind_group, &[]);
         self.set_bind_group(2, light_bind_group, &[]);
+        self.set_bind_group(3, environment_bind_group, &[]);
         self.draw_indexed(0..mesh.num_elements, 0, instances);
     }
 
@@ -190,8 +211,15 @@ where
         model: &'b Model,
         camera_bind_group: &'b wgpu::BindGroup,
         light_bind_group: &'b wgpu::BindGroup,
+        environment_bind_group: &'b wgpu::BindGroup,
     ) {
-        self.draw_model_instanced(model, 0..1, camera_bind_group, light_bind_group);
+        self.draw_model_instanced(
+            model,
+            0..1,
+            camera_bind_group,
+            light_bind_group,
+            environment_bind_group,
+        );
     }
 
     fn draw_model_instanced(
@@ -200,6 +228,7 @@ where
         instances: Range<u32>,
         camera_bind_group: &'b wgpu::BindGroup,
         light_bind_group: &'b wgpu::BindGroup,
+        environment_bind_group: &'b wgpu::BindGroup, // NEW!
     ) {
         for mesh in &model.meshes {
             let material = &model.materials[mesh.material];
@@ -209,6 +238,7 @@ where
                 instances.clone(),
                 camera_bind_group,
                 light_bind_group,
+                environment_bind_group,
             );
         }
     }
@@ -220,6 +250,7 @@ where
         instances: Range<u32>,
         camera_bind_group: &'b wgpu::BindGroup,
         light_bind_group: &'b wgpu::BindGroup,
+        environment_bind_group: &'b wgpu::BindGroup,
     ) {
         for mesh in &model.meshes {
             self.draw_mesh_instanced(
@@ -228,12 +259,14 @@ where
                 instances.clone(),
                 camera_bind_group,
                 light_bind_group,
+                environment_bind_group,
             );
         }
     }
 }
 
 pub trait DrawLight<'a> {
+    #[allow(unused)]
     fn draw_light_mesh(
         &mut self,
         mesh: &'a Mesh,
